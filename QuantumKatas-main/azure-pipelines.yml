@@ -1,0 +1,94 @@
+name: $(Build.Major).$(Build.Minor).$(BuildId)
+
+trigger: none
+
+pr:
+- main
+- feature/*
+- release/*
+
+schedules:
+- cron: "0 9 * * Sat"
+  displayName: 'Build for Component Governance'
+  branches:
+    include:
+    - main
+  always: true
+
+variables:
+  Build.Major: 1
+  Build.Minor: 0
+  Build.Patch: $(Build.BuildId)
+  Build.Configuration: 'Release'
+  Drops.Dir: $(Build.ArtifactStagingDirectory)/drops
+  IQSharp.Hosting.Env: 'build-agent-katas'
+
+jobs:
+  - job: binaries
+    displayName: 'Build Binary Packages'
+    steps:
+    - template: scripts/steps-init.yml
+    - template: scripts/steps-binaries.yml
+
+  - job: validate_projects
+    displayName: 'Validate C# Projects'
+    strategy:
+      matrix:
+        linux:
+          imageName: 'ubuntu-latest'
+        mac:
+          imageName: 'macOS-latest'
+        windows:
+          imageName: 'windows-latest'
+    pool: 
+      vmImage: $(imageName)
+    steps:
+    - template: scripts/steps-init.yml
+
+    - powershell: ./validate-unicode.ps1
+      displayName: "Validating Unicode characters"
+      workingDirectory: $(System.DefaultWorkingDirectory)/scripts
+
+    - powershell: ./validate-projects.ps1
+      displayName: "Validating C# projects"
+      workingDirectory: $(System.DefaultWorkingDirectory)/scripts
+
+  - job: validate_notebooks_part_1
+    displayName: 'Validate Notebooks (part 1)'
+    strategy:
+      matrix:
+        linux:
+          imageName: 'ubuntu-latest'
+        mac:
+          imageName: 'macOS-latest'
+        windows:
+          imageName: 'windows-latest'
+    pool: 
+      vmImage: $(imageName)
+    steps:
+    - template: scripts/steps-init.yml
+
+    - powershell: './validate-notebooks.ps1 -startindex 0 -endindex 24'
+      displayName: "Validating notebooks"
+      workingDirectory: $(System.DefaultWorkingDirectory)/scripts
+
+  - job: validate_notebooks_part_2
+    displayName: 'Validate Notebooks (part 2)'
+    strategy:
+      matrix:
+        linux:
+          imageName: 'ubuntu-latest'
+        mac:
+          imageName: 'macOS-latest'
+        windows:
+          imageName: 'windows-latest'
+    pool: 
+      vmImage: $(imageName)
+    steps:
+    - template: scripts/steps-init.yml
+
+    - powershell: './validate-notebooks.ps1 -startindex 25'
+      displayName: "Validating notebooks"
+      workingDirectory: $(System.DefaultWorkingDirectory)/scripts
+
+
